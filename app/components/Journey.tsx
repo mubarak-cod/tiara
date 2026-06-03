@@ -8,44 +8,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "@studio-freight/lenis";
 
 type PhotoSlide = {
-  src?: string;
-  caption: string;
-  accent: string;
-  note: string;
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity }} className="grid h-20 w-20 place-items-center rounded-full border border-white/30 bg-white/10 text-3xl text-white">▶</motion.div>
-                        <p className="mt-6 text-sm uppercase tracking-[0.45em] text-white/65">Video preview coming alive</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col justify-between p-7 sm:p-9">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.45em] text-white/35">Moments I\'ll Never Forget</div>
-                    <h3 className="mt-4 text-3xl font-semibold text-white">{videoMemories[activeVideo].title}</h3>
-                    <p className="mt-4 text-sm leading-7 text-white/70">{videoMemories[activeVideo].description}</p>
-                  </div>
-                  <div className="mt-8 flex justify-end">
-                    <button onClick={() => setActiveVideo(null)} className="rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm text-white">Close</button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-"use client";
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Lenis from "@studio-freight/lenis";
-
-type PhotoSlide = {
   src: string;
   caption: string;
   note: string;
@@ -57,18 +19,12 @@ type VideoMemory = {
   year: string;
   description: string;
   poster: string;
-  videoSrc?: string;
 };
 
 type TimelineEvent = {
   title: string;
   text: string;
   side: "left" | "right";
-};
-
-type Letter = {
-  title: string;
-  message: string;
 };
 
 const gallerySlides: PhotoSlide[] = [
@@ -88,7 +44,7 @@ const gallerySlides: PhotoSlide[] = [
     src: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80",
     caption: "My favorite notification.",
     note: "A message from her always felt like light.",
-    glow: "rgba(230, 184, 122, 0.4)",
+    glow: "rgba(230, 184, 122, 0.38)",
   },
   {
     src: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1400&q=80",
@@ -146,7 +102,7 @@ const timeline: TimelineEvent[] = [
   { title: "Today ❤️", text: "Still here. Still grateful. Still in love.", side: "left" },
 ];
 
-const letters: Letter[] = [
+const letters = [
   { title: "I still smile thinking about that day.", message: "Every time I remember us, it feels like a soft movie scene I never want to end." },
   { title: "You make life easier.", message: "Not because life is simple, but because you make love feel steady." },
   { title: "Thank you for being you.", message: "You don’t have to try to be magical. You already are." },
@@ -194,12 +150,33 @@ function Sparkles({ seed = 0 }: { seed?: number }) {
   );
 }
 
-function GradientFrame({ slide }: { slide: PhotoSlide }) {
+function GradientFallback({ slide }: { slide: PhotoSlide }) {
+  return (
+    <div
+      className="absolute inset-0 flex flex-col justify-end overflow-hidden rounded-[2rem]"
+      style={{ background: `radial-gradient(circle at top left, ${slide.glow}, transparent 42%), linear-gradient(135deg, rgba(20,10,30,0.95), rgba(67,21,94,0.85))` }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.14),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.08),transparent_25%)]" />
+      <div className="absolute inset-0 border border-white/10" />
+      <div className="relative z-10 p-6 sm:p-7">
+        <div className="text-[11px] uppercase tracking-[0.45em] text-white/50">memory frame</div>
+        <div className="mt-4 text-2xl font-semibold leading-tight text-white sm:text-3xl">{slide.caption}</div>
+        <div className="mt-3 max-w-md text-sm text-white/75 sm:text-base">{slide.note}</div>
+      </div>
+    </div>
+  );
+}
+
+function SlideFrame({ slide, broken, onError }: { slide: PhotoSlide; broken: boolean; onError: () => void }) {
   return (
     <div className="absolute inset-0 overflow-hidden rounded-[2rem]">
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `linear-gradient(180deg, rgba(10, 4, 17, 0.05), rgba(10, 4, 17, 0.74)), radial-gradient(circle at 20% 20%, ${slide.glow}, transparent 42%), url(${slide.src})` }} />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,transparent_20%,rgba(10,4,18,0.75)_100%)]" />
-      <div className="absolute inset-0 border border-white/10" />
+      {!broken ? (
+        <Image src={slide.src} alt={slide.caption} fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" onError={onError} priority={false} />
+      ) : (
+        <GradientFallback slide={slide} />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#120816] via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_38%)]" />
     </div>
   );
 }
@@ -207,24 +184,24 @@ function GradientFrame({ slide }: { slide: PhotoSlide }) {
 export default function Journey() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const heroCardRef = useRef<HTMLDivElement | null>(null);
-  const cursorGlowRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const galleryGlowRef = useRef<HTMLDivElement | null>(null);
-
+  const cursorGlowRef = useRef<HTMLDivElement | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentMemory, setCurrentMemory] = useState(0);
+  const [slideErrors, setSlideErrors] = useState<boolean[]>(() => gallerySlides.map(() => false));
   const [showLoveNote, setShowLoveNote] = useState(false);
   const [isPlayingSong, setIsPlayingSong] = useState(false);
   const [activeVideo, setActiveVideo] = useState<number | null>(null);
   const [openLetter, setOpenLetter] = useState<number | null>(null);
   const [surpriseStep, setSurpriseStep] = useState(0);
-  const [currentMemory, setCurrentMemory] = useState(0);
   const [confettiSeed, setConfettiSeed] = useState(0);
-  const [reasonTilt, setReasonTilt] = useState({ x: 0, y: 0 });
-  const [memoCaption, setMemoCaption] = useState(gallerySlides[0].caption);
+  const activeSlide = gallerySlides[currentSlide];
+
+  const memoryCaption = useMemo(() => gallerySlides[currentMemory].caption, [currentMemory]);
 
   useEffect(() => {
     const LenisCtor = Lenis as unknown as new (options: { duration: number; wheelMultiplier: number; smoothWheel?: boolean }) => { raf: (time: number) => void; destroy: () => void };
-    const lenis = new LenisCtor({ duration: 1.15, wheelMultiplier: 1.15, smoothWheel: true });
+    const lenis = new LenisCtor({ duration: 1.1, wheelMultiplier: 1.1, smoothWheel: true });
     let frameId = 0;
 
     const raf = (time: number) => {
@@ -248,10 +225,6 @@ export default function Journey() {
 
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    setMemoCaption(gallerySlides[currentMemory].caption);
-  }, [currentMemory]);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -287,36 +260,19 @@ export default function Journey() {
           scrub: 1,
         },
       });
-
-      gsap.utils.toArray<HTMLElement>(".float-parallax").forEach((element, index) => {
-        gsap.to(element, {
-          y: index % 2 === 0 ? -24 : 24,
-          scrollTrigger: {
-            trigger: element,
-            start: "top bottom",
-            end: "bottom top",
-            scrub: 1.5,
-          },
-        });
-      });
     }, rootRef);
 
     return () => ctx.revert();
   }, []);
 
   useEffect(() => {
-    const moveCursorGlow = (event: MouseEvent) => {
+    const onMove = (event: MouseEvent) => {
       if (!cursorGlowRef.current) return;
-      gsap.to(cursorGlowRef.current, {
-        x: event.clientX - 180,
-        y: event.clientY - 180,
-        duration: 0.6,
-        ease: "power3.out",
-      });
+      gsap.to(cursorGlowRef.current, { x: event.clientX - 180, y: event.clientY - 180, duration: 0.6, ease: "power3.out" });
     };
 
-    window.addEventListener("mousemove", moveCursorGlow);
-    return () => window.removeEventListener("mousemove", moveCursorGlow);
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
   useEffect(() => {
@@ -342,35 +298,23 @@ export default function Journey() {
 
   useEffect(() => {
     if (!showLoveNote) return;
-
-    const timeout = window.setTimeout(() => {
-      setShowLoveNote(false);
-    }, 6500);
-
-    return () => window.clearTimeout(timeout);
-  }, [showLoveNote]);
-
-  useEffect(() => {
-    if (!showLoveNote) return;
-
-    const timer = window.setInterval(() => {
-      setSurpriseStep((value) => (value + 1) % surpriseLines.length);
-    }, 2600);
-
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => setSurpriseStep((value) => (value + 1) % surpriseLines.length), 2600);
+    const timeout = window.setTimeout(() => setShowLoveNote(false), 6500);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(timeout);
+    };
   }, [showLoveNote]);
 
   const handleRipple = (event: React.MouseEvent<HTMLButtonElement>) => {
     const button = event.currentTarget;
     const circle = document.createElement("span");
     const diameter = Math.max(button.clientWidth, button.clientHeight);
-
     circle.className = "ripple-dot";
     circle.style.width = `${diameter}px`;
     circle.style.height = `${diameter}px`;
     circle.style.left = `${event.clientX - button.getBoundingClientRect().left}px`;
     circle.style.top = `${event.clientY - button.getBoundingClientRect().top}px`;
-
     const existing = button.getElementsByClassName("ripple-dot")[0];
     if (existing) existing.remove();
     button.appendChild(circle);
@@ -380,7 +324,6 @@ export default function Journey() {
     const container = document.createElement("div");
     container.className = "confetti-container";
     const parent = rootRef.current ?? document.body;
-
     for (let index = 0; index < 42; index += 1) {
       const piece = document.createElement("div");
       piece.className = "confetti-piece";
@@ -389,7 +332,6 @@ export default function Journey() {
       piece.style.background = ["#ff6fb5", "#c9b6ff", "#ffd6e8", "#e6b87a", "#ffffff"][index % 5];
       container.appendChild(piece);
     }
-
     parent.appendChild(container);
     window.setTimeout(() => container.remove(), 4600);
   };
@@ -398,7 +340,6 @@ export default function Journey() {
     setShowLoveNote(true);
     setConfettiSeed((value) => value + 1);
     const audio = audioRef.current;
-
     if (audio) {
       try {
         audio.currentTime = 0;
@@ -408,7 +349,6 @@ export default function Journey() {
         setIsPlayingSong(false);
       }
     }
-
     launchConfetti();
     document.getElementById("surprise-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -416,13 +356,11 @@ export default function Journey() {
   const toggleSong = async () => {
     const audio = audioRef.current;
     if (!audio) return;
-
     if (isPlayingSong) {
       audio.pause();
       setIsPlayingSong(false);
       return;
     }
-
     try {
       await audio.play();
       setIsPlayingSong(true);
@@ -431,19 +369,19 @@ export default function Journey() {
     }
   };
 
-  const activeSlide = gallerySlides[currentSlide];
-
   return (
     <div ref={rootRef} className="relative min-h-screen overflow-hidden bg-[#140716] text-white">
-      <div ref={cursorGlowRef} className="pointer-events-none fixed left-0 top-0 z-40 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,111,181,0.22),rgba(201,182,255,0.14),transparent_70%)] blur-3xl mix-blend-screen" />
+      <div ref={cursorGlowRef} id="cursor-glow" className="pointer-events-none fixed left-0 top-0 z-40 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,111,181,0.22),rgba(201,182,255,0.14),transparent_70%)] blur-3xl mix-blend-screen" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,111,181,0.2),transparent_30%),radial-gradient(circle_at_80%_0%,rgba(201,182,255,0.18),transparent_28%),linear-gradient(180deg,#16051c_0%,#100410_100%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.07),transparent_35%)] opacity-30" />
+      <div className="absolute inset-0 noise" />
 
       <main className="relative z-10">
         <section className="min-h-screen px-6 pb-24 pt-8 sm:px-10 lg:px-16">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-16 lg:flex-row lg:items-center lg:gap-10">
             <div className="flex-1" data-reveal>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] uppercase tracking-[0.45em] text-white/65 backdrop-blur-md">Tiara’s birthday story</div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] uppercase tracking-[0.45em] text-white/65 backdrop-blur-md">
+                Tiara’s birthday story
+              </div>
 
               <div className="mt-8 max-w-3xl space-y-5">
                 <p className="text-lg uppercase tracking-[0.45em] text-white/55">Happy Birthday Beautiful ❤️</p>
@@ -466,20 +404,14 @@ export default function Journey() {
                   {isPlayingSong ? "Pause Our Song ⏸" : "Play Our Song 🎵"}
                 </motion.button>
 
-                <button onClick={() => setShowLoveNote(true)} className="rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm text-white/85 backdrop-blur-md transition hover:bg-white/10">Open love note</button>
                 <audio ref={audioRef} src="/our-song.mp3" preload="metadata" playsInline crossOrigin="anonymous" onEnded={() => setIsPlayingSong(false)} />
               </div>
 
               <div className="mt-10 grid max-w-xl grid-cols-2 gap-3 rounded-[1.75rem] border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:grid-cols-4" data-reveal>
-                {[
-                  { label: "Days", value: "00" },
-                  { label: "Hours", value: "00" },
-                  { label: "Minutes", value: "00" },
-                  { label: "Seconds", value: "00" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
-                    <div className="text-3xl font-semibold text-white">{item.value}</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.32em] text-white/55">{item.label}</div>
+                {["Days", "Hours", "Minutes", "Seconds"].map((label) => (
+                  <div key={label} className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
+                    <div className="text-3xl font-semibold text-white">00</div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.32em] text-white/55">{label}</div>
                   </div>
                 ))}
               </div>
@@ -491,13 +423,13 @@ export default function Journey() {
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={currentSlide}
-                      initial={{ opacity: 0, x: currentSlide % 2 === 0 ? 64 : -64, scale: 1.05, filter: "blur(12px)", rotate: currentSlide % 2 === 0 ? 2 : -2 }}
+                      initial={{ opacity: 0, x: currentSlide % 2 === 0 ? 54 : -54, scale: 1.05, filter: "blur(12px)", rotate: currentSlide % 2 === 0 ? 2 : -2 }}
                       animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)", rotate: 0 }}
-                      exit={{ opacity: 0, x: currentSlide % 2 === 0 ? -64 : 64, scale: 1.05, filter: "blur(16px)", rotate: currentSlide % 2 === 0 ? -2 : 2 }}
+                      exit={{ opacity: 0, x: currentSlide % 2 === 0 ? -54 : 54, scale: 1.05, filter: "blur(16px)", rotate: currentSlide % 2 === 0 ? -2 : 2 }}
                       transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
                       className="absolute inset-0"
                     >
-                      <GradientFrame slide={activeSlide} />
+                      <SlideFrame slide={activeSlide} broken={slideErrors[currentSlide]} onError={() => setSlideErrors((value) => value.map((item, itemIndex) => (itemIndex === currentSlide ? true : item)))} />
                     </motion.div>
                   </AnimatePresence>
 
@@ -521,7 +453,7 @@ export default function Journey() {
                     </div>
                   </div>
 
-                  <div ref={galleryGlowRef} style={{ boxShadow: `0 0 180px 50px ${activeSlide.glow}` }} className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] opacity-70 blur-3xl transition-all duration-1000" />
+                  <div className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] opacity-70 blur-3xl transition-all duration-1000" style={{ boxShadow: `0 0 180px 50px ${activeSlide.glow}` }} />
                   <Sparkles seed={confettiSeed + currentSlide} />
                 </div>
               </div>
@@ -537,7 +469,7 @@ export default function Journey() {
               <div className="mt-6 flex items-center justify-between gap-4 rounded-[1.75rem] border border-white/10 bg-white/5 px-5 py-4 backdrop-blur-md" data-reveal>
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.4em] text-white/45">Now showing</div>
-                  <div className="mt-2 text-lg font-medium text-white">{memoCaption}</div>
+                  <div className="mt-2 text-lg font-medium text-white">{memoryCaption}</div>
                 </div>
                 <div className="max-w-sm text-right text-sm text-white/70">The frame changes every 4 seconds, like Kamal is turning pages in the most personal story he knows.</div>
               </div>
@@ -545,26 +477,14 @@ export default function Journey() {
           </div>
         </section>
 
-        <section className="px-6 py-24 sm:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl" data-reveal>
+        <section className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
+          <div className="mx-auto max-w-7xl">
             <SectionTitle kicker="Why she matters" title="Reasons why you're special" subtitle="Ten floating reasons, each one a small truth Kamal never gets tired of saying." />
-
             <div className="relative mt-12 rounded-[2.25rem] border border-white/10 bg-white/5 p-6 backdrop-blur-2xl">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,111,181,0.14),transparent_28%),radial-gradient(circle_at_80%_30%,rgba(201,182,255,0.12),transparent_25%)]" />
-              <div className="absolute inset-0 opacity-40">
-                {Array.from({ length: 18 }).map((_, index) => (
-                  <span key={index} className="sparkle" style={{ left: `${(index * 11) % 100}%`, top: `${(index * 17) % 100}%`, width: 4 + (index % 4), height: 4 + (index % 4), animationDelay: `${index * 0.09}s` }} />
-                ))}
-              </div>
-
-              <div className="relative grid gap-4 sm:grid-cols-2 xl:grid-cols-5" onMouseMove={(event) => {
-                const bounds = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
-                const x = (event.clientX - (bounds.left + bounds.width / 2)) / bounds.width;
-                const y = (event.clientY - (bounds.top + bounds.height / 2)) / bounds.height;
-                setReasonTilt({ x, y });
-              }}>
+              <div className="relative grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 {reasons.map((reason, index) => (
-                  <motion.div key={reason} whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5, scale: 1.02 }} className="float-parallax group rounded-[1.5rem] border border-white/10 bg-black/20 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.3)] backdrop-blur-md" style={{ transform: `perspective(1200px) translate3d(${reasonTilt.x * (index + 1) * 8}px, ${reasonTilt.y * (index + 1) * 8}px, 0px)` }}>
+                  <motion.div key={reason} whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5, scale: 1.02 }} className="float-parallax group rounded-[1.5rem] border border-white/10 bg-black/20 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.3)] backdrop-blur-md">
                     <div className="text-[11px] uppercase tracking-[0.45em] text-white/40">{String(index + 1).padStart(2, "0")}</div>
                     <p className="mt-4 text-lg leading-7 text-white/88">{reason}</p>
                   </motion.div>
@@ -577,7 +497,6 @@ export default function Journey() {
         <section className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
           <div className="mx-auto max-w-7xl">
             <SectionTitle kicker="Video memories" title="Moments I'll Never Forget" subtitle="Every memory here means something to me. Click any card and it opens like a little cinema window." />
-
             <div className="mt-12 grid gap-6 lg:grid-cols-3">
               {videoMemories.map((memory, index) => (
                 <motion.button key={memory.title} onClick={() => setActiveVideo(index)} whileHover={{ y: -10, rotate: index % 2 === 0 ? 1 : -1 }} className="group relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 text-left shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
@@ -602,10 +521,8 @@ export default function Journey() {
         <section id="timeline-section" className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
           <div className="mx-auto max-w-6xl">
             <SectionTitle kicker="Timeline" title="Timeline of us" subtitle="A vertical line of memories that catches the light as it grows." />
-
             <div className="relative mt-16">
-              <div className="absolute left-1/2 top-0 h-full w-px origin-top scale-y-0 bg-gradient-to-b from-white/0 via-white/50 to-white/0 timeline-line" />
-
+              <div className="timeline-line absolute left-1/2 top-0 h-full w-px origin-top scale-y-0 bg-gradient-to-b from-white/0 via-white/50 to-white/0" />
               <div className="space-y-10">
                 {timeline.map((entry, index) => (
                   <div key={entry.title} className={`grid items-center gap-6 lg:grid-cols-2 ${entry.side === "left" ? "" : "lg:[&>div:first-child]:order-2"}`}>
@@ -628,7 +545,6 @@ export default function Journey() {
         <section className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
           <div className="mx-auto max-w-7xl">
             <SectionTitle kicker="Love letters" title="Floating love letters" subtitle="Click any envelope. The letter unfolds like a secret that wanted to be found." />
-
             <div className="mt-12 grid gap-6 md:grid-cols-3">
               {letters.map((letter, index) => (
                 <motion.button key={letter.title} whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5 }} onClick={() => setOpenLetter(openLetter === index ? null : index)} className="group relative min-h-[340px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-left backdrop-blur-2xl">
@@ -653,8 +569,7 @@ export default function Journey() {
         <section className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
           <div className="mx-auto max-w-7xl">
             <SectionTitle kicker="Words in motion" title="Birthday wishes wall" subtitle="Typography that feels like it is breathing. Some words drift, some rotate, some scale up as the scroll gets closer." />
-
-            <div className="mt-12 relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-white/5 p-8 backdrop-blur-2xl">
+            <div className="relative mt-12 overflow-hidden rounded-[2.25rem] border border-white/10 bg-white/5 p-8 backdrop-blur-2xl">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,111,181,0.15),transparent_25%),radial-gradient(circle_at_80%_10%,rgba(201,182,255,0.18),transparent_25%)]" />
               <div className="relative flex min-h-[420px] flex-wrap items-center justify-center gap-5 sm:gap-8">
                 {wishWords.map((word, index) => (
@@ -670,10 +585,9 @@ export default function Journey() {
         <section className="px-6 py-24 sm:px-10 lg:px-16" data-reveal>
           <div className="mx-auto max-w-7xl">
             <SectionTitle kicker="Future" title="Future adventures" subtitle="Dream cards that feel like plans already waiting to happen." />
-
             <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {adventures.map((item, index) => (
-                <motion.div key={item.title} whileHover={{ y: -10, scale: 1.02, rotateY: index % 2 === 0 ? 8 : -8 }} className="float-parallax rounded-[1.75rem] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(0,0,0,0.4)] backdrop-blur-2xl transform-gpu">
+                <motion.div key={item.title} whileHover={{ y: -10, scale: 1.02, rotateY: index % 2 === 0 ? 8 : -8 }} className="float-parallax transform-gpu rounded-[1.75rem] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
                   <div className="text-4xl">{item.icon}</div>
                   <h3 className="mt-5 text-2xl font-semibold text-white">{item.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-white/72">{item.text}</p>
@@ -688,7 +602,6 @@ export default function Journey() {
           <div className="absolute inset-0 opacity-70">
             <Sparkles seed={confettiSeed + surpriseStep} />
           </div>
-
           <div className="relative mx-auto flex min-h-[540px] max-w-5xl flex-col items-center justify-center text-center">
             <div className="mb-8 h-px w-40 bg-gradient-to-r from-transparent via-white/60 to-transparent" />
             <AnimatePresence mode="wait">
@@ -705,7 +618,6 @@ export default function Journey() {
           <div className="absolute inset-0 opacity-90">
             <Sparkles seed={confettiSeed + 30} />
           </div>
-
           <div className="relative mx-auto flex min-h-[760px] max-w-6xl flex-col items-center justify-center text-center">
             <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="text-[11px] uppercase tracking-[0.5em] text-white/40">The ending that never ends</motion.div>
             <motion.h2 animate={{ opacity: [0.8, 1, 0.8] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="mt-6 text-5xl font-semibold tracking-[-0.06em] text-white sm:text-7xl lg:text-[6.75rem]">Kamal <span className="text-[#ff8fc8]">❤️</span> Tiara</motion.h2>
@@ -744,17 +656,13 @@ export default function Journey() {
             <motion.div initial={{ scale: 0.94, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 10 }} className="relative z-10 w-[min(92vw,960px)] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0f0916] shadow-[0_40px_140px_rgba(0,0,0,0.65)]">
               <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="relative aspect-[16/10] bg-black">
-                  {videoMemories[activeVideo].videoSrc ? (
-                    <video src={videoMemories[activeVideo].videoSrc} className="h-full w-full object-cover" controls autoPlay playsInline />
-                  ) : (
-                    <div className="relative h-full w-full" style={{ background: videoMemories[activeVideo].poster }}>
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_34%)]" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity }} className="grid h-20 w-20 place-items-center rounded-full border border-white/30 bg-white/10 text-3xl text-white">▶</motion.div>
-                        <p className="mt-6 text-sm uppercase tracking-[0.45em] text-white/65">Video preview coming alive</p>
-                      </div>
+                  <div className="relative h-full w-full" style={{ background: videoMemories[activeVideo].poster }}>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_34%)]" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity }} className="grid h-20 w-20 place-items-center rounded-full border border-white/30 bg-white/10 text-3xl text-white">▶</motion.div>
+                      <p className="mt-6 text-sm uppercase tracking-[0.45em] text-white/65">Video preview coming alive</p>
                     </div>
-                  )}
+                  </div>
                 </div>
                 <div className="flex flex-col justify-between p-7 sm:p-9">
                   <div>
