@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -33,6 +33,15 @@ type CountdownParts = {
   minutes: string;
   seconds: string;
 };
+
+type CursorMode = "default" | "button" | "memory" | "video" | "letter" | "interactive";
+
+const cursorMessages = [
+  "You are loved ❤️",
+  "Happy Birthday Tiara ✨",
+  "Kamal loves you ❤️",
+  "My favorite person.",
+];
 
 const gallerySlides: PhotoSlide[] = [
   {
@@ -216,11 +225,270 @@ function SlideFrame({ slide, broken, onError }: { slide: PhotoSlide; broken: boo
   );
 }
 
+function PremiumLoveCursor() {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const cursorX = useMotionValue(-120);
+  const cursorY = useMotionValue(-120);
+  const cursorScale = useSpring(1, { stiffness: 260, damping: 24, mass: 0.35 });
+  const cursorRotation = useSpring(0, { stiffness: 220, damping: 28, mass: 0.3 });
+  const [mode, setMode] = useState<CursorMode>("default");
+  const [label, setLabel] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [clickPulse, setClickPulse] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const stillTimer = useRef<number | null>(null);
+  const hideMessageTimer = useRef<number | null>(null);
+  const lastMode = useRef<CursorMode>("default");
+  const modeRef = useRef<CursorMode>("default");
+  const lastSpawn = useRef(0);
+  const lastPosition = useRef({ x: 0, y: 0 });
+  const particleId = useRef(0);
+
+  useEffect(() => {
+    if (!window.matchMedia("(pointer: fine) and (hover: hover)").matches) return;
+
+    const body = document.body;
+    body.classList.add("love-cursor-enabled");
+
+    const interactiveSelector =
+      "button, a, [role='button'], [data-love-cursor], [data-love-reactive]";
+    const identityMap: Array<[string, CursorMode, string]> = [
+      ["button", "button", "Open"],
+      ["memory", "memory", "View Memory"],
+      ["video", "video", "Play Memory"],
+      ["letter", "letter", "Open"],
+      ["interactive", "interactive", "Open"],
+    ];
+
+    const clearTimers = () => {
+      if (stillTimer.current) window.clearTimeout(stillTimer.current);
+      if (hideMessageTimer.current) window.clearTimeout(hideMessageTimer.current);
+    };
+
+    const spawnParticle = (x: number, y: number, kind: "heart" | "sparkle" | "star", strength = 1) => {
+      const layer = layerRef.current;
+      if (!layer) return;
+
+      const particle = document.createElement("span");
+      const id = particleId.current + 1;
+      particleId.current = id;
+
+      const size = kind === "heart" ? 9 + Math.random() * 6 : kind === "sparkle" ? 5 + Math.random() * 4 : 4 + Math.random() * 3;
+      const driftX = (Math.random() - 0.5) * 64 * strength;
+      const driftY = -18 - Math.random() * 48 * strength;
+      const rotation = (Math.random() - 0.5) * 50;
+      const symbol = kind === "heart" ? "❤" : kind === "sparkle" ? "✦" : "⋆";
+
+      particle.className = `love-cursor-particle love-cursor-${kind}`;
+      particle.textContent = symbol;
+      particle.style.left = `${x}px`;
+      particle.style.top = `${y}px`;
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+      particle.style.setProperty("--drift-x", `${driftX}px`);
+      particle.style.setProperty("--drift-y", `${driftY}px`);
+      particle.style.setProperty("--spin", `${rotation}deg`);
+      particle.style.animationDelay = `${Math.random() * 60}ms`;
+      layer.appendChild(particle);
+
+      window.setTimeout(() => particle.remove(), 1200);
+    };
+
+    const burst = (x: number, y: number, kind: CursorMode, intensity = 1) => {
+      const palette: Array<"heart" | "sparkle" | "star"> = kind === "video" ? ["sparkle", "star", "sparkle"] : kind === "letter" ? ["heart", "sparkle", "heart"] : ["heart", "sparkle", "star"];
+      palette.forEach((particleKind, index) => {
+        window.setTimeout(() => spawnParticle(x, y, particleKind, intensity), index * 20);
+      });
+    };
+
+    const updateReactiveElements = (x: number, y: number) => {
+      const elements = document.querySelectorAll<HTMLElement>("[data-love-reactive]");
+      elements.forEach((element) => {
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const deltaX = x - centerX;
+        const deltaY = y - centerY;
+        const distance = Math.hypot(deltaX, deltaY);
+
+        if (distance > 150) {
+          gsap.to(element, { x: 0, y: 0, scale: 1, duration: 0.7, ease: "power3.out" });
+          return;
+        }
+
+        const pull = (1 - distance / 150) * 9;
+        gsap.to(element, {
+          x: deltaX * 0.04,
+          y: deltaY * 0.04,
+          scale: 1 + pull * 0.007,
+          duration: 0.45,
+          ease: "power3.out",
+        });
+      });
+    };
+
+    const setCursorMode = (nextMode: CursorMode, nextLabel: string | null, x: number, y: number) => {
+      setVisible(true);
+      setMode(nextMode);
+      setLabel(nextLabel);
+
+      if (nextMode !== lastMode.current) {
+        if (nextMode === "button") {
+          cursorScale.set(1.16);
+          burst(x, y, nextMode, 1);
+        }
+        if (nextMode === "memory" || nextMode === "video" || nextMode === "letter") {
+          burst(x, y, nextMode, 1.2);
+        }
+        lastMode.current = nextMode;
+        modeRef.current = nextMode;
+      }
+    };
+
+    const onMove = (event: MouseEvent) => {
+      const x = event.clientX;
+      const y = event.clientY;
+      const now = performance.now();
+
+      cursorX.set(x);
+      cursorY.set(y);
+      cursorRotation.set(Math.max(-10, Math.min(10, (x - lastPosition.current.x) * 0.08)));
+      setVisible(true);
+      updateReactiveElements(x, y);
+
+      if (now - lastSpawn.current > 54) {
+        const distance = Math.hypot(x - lastPosition.current.x, y - lastPosition.current.y);
+        const kind = distance > 26 ? (Math.random() > 0.55 ? "sparkle" : Math.random() > 0.5 ? "heart" : "star") : "sparkle";
+        spawnParticle(x, y, kind, 1);
+        lastSpawn.current = now;
+      }
+
+      lastPosition.current = { x, y };
+
+      const target = document.elementFromPoint(x, y)?.closest(interactiveSelector) as HTMLElement | null;
+      if (target) {
+        const explicitMode = target.getAttribute("data-love-cursor");
+        const cursorEntry = identityMap.find(([token]) => explicitMode === token) ?? ["interactive", "interactive", "Open"];
+        const nextMode = cursorEntry[1];
+        const nextLabel = cursorEntry[2];
+        setCursorMode(nextMode, nextLabel, x, y);
+      } else {
+        setCursorMode("default", null, x, y);
+      }
+
+      clearTimers();
+      stillTimer.current = window.setTimeout(() => {
+        const chosen = cursorMessages[Math.floor(Math.random() * cursorMessages.length)];
+        setMessage(chosen);
+        hideMessageTimer.current = window.setTimeout(() => setMessage(null), 2600);
+      }, 3000);
+    };
+
+    const onDown = () => {
+      cursorScale.set(1.24);
+      setClickPulse((value) => value + 1);
+      burst(lastPosition.current.x, lastPosition.current.y, modeRef.current, 1.25);
+    };
+
+    const onUp = () => {
+      cursorScale.set(mode === "button" ? 1.12 : 1);
+    };
+
+    const onLeave = () => {
+      setVisible(false);
+      setLabel(null);
+      setMessage(null);
+      setMode("default");
+      lastMode.current = "default";
+      modeRef.current = "default";
+      cursorScale.set(1);
+      cursorRotation.set(0);
+      document.querySelectorAll<HTMLElement>("[data-love-reactive]").forEach((element) => {
+        gsap.to(element, { x: 0, y: 0, scale: 1, duration: 0.7, ease: "power3.out" });
+      });
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseleave", onLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseleave", onLeave);
+      body.classList.remove("love-cursor-enabled");
+      clearTimers();
+      document.querySelectorAll<HTMLElement>("[data-love-reactive]").forEach((element) => {
+        gsap.killTweensOf(element);
+        element.style.transform = "";
+      });
+    };
+  }, [cursorRotation, cursorScale]);
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[90] hidden md:block">
+      <motion.div
+        className="love-cursor-shell"
+        style={{ x: cursorX, y: cursorY, scale: cursorScale, rotate: cursorRotation, opacity: visible ? 1 : 0 }}
+      >
+        <div className={`love-cursor-core ${mode === "video" ? "love-cursor-core-video" : mode === "letter" ? "love-cursor-core-letter" : mode === "memory" ? "love-cursor-core-memory" : mode === "button" ? "love-cursor-core-button" : ""}`}>
+          <motion.span
+            key={`ring-${clickPulse}`}
+            className="love-cursor-ring"
+            initial={{ scale: 0.4, opacity: 0.9 }}
+            animate={{ scale: 2.6, opacity: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          />
+          <motion.span
+            key={`${mode}-${clickPulse}`}
+            className="love-cursor-heart-glyph"
+            initial={{ scale: 0.92, opacity: 0.9 }}
+            animate={mode === "button" ? { scale: [1, 1.18, 1], opacity: [0.94, 1, 0.94] } : { scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {mode === "video" ? "▶" : mode === "letter" ? "✉" : "❤"}
+          </motion.span>
+          <span className="love-cursor-glow" />
+        </div>
+
+        <AnimatePresence>
+          {label ? (
+            <motion.span
+              initial={{ opacity: 0, x: 10, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 8, scale: 0.96 }}
+              className="love-cursor-label"
+            >
+              {label}
+            </motion.span>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {message ? (
+            <motion.span
+              initial={{ opacity: 0, y: 10, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.96 }}
+              className="love-cursor-message"
+            >
+              {message}
+            </motion.span>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
+
+      <div ref={layerRef} className="love-cursor-particles" />
+    </div>
+  );
+}
+
 export default function Journey() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const heroCardRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const cursorGlowRef = useRef<HTMLDivElement | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentMemory, setCurrentMemory] = useState(0);
   const [slideErrors, setSlideErrors] = useState<boolean[]>(() => gallerySlides.map(() => false));
@@ -339,16 +607,6 @@ export default function Journey() {
   }, []);
 
   useEffect(() => {
-    const onMove = (event: MouseEvent) => {
-      if (!cursorGlowRef.current) return;
-      gsap.to(cursorGlowRef.current, { x: event.clientX - 180, y: event.clientY - 180, duration: 0.6, ease: "power3.out" });
-    };
-
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  useEffect(() => {
     const heroCard = heroCardRef.current;
     if (!heroCard) return;
 
@@ -444,7 +702,7 @@ export default function Journey() {
 
   return (
     <div ref={rootRef} className="relative min-h-screen overflow-hidden bg-[#140716] text-white">
-      <div ref={cursorGlowRef} id="cursor-glow" className="pointer-events-none fixed left-0 top-0 z-40 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,111,181,0.22),rgba(201,182,255,0.14),transparent_70%)] blur-3xl mix-blend-screen" />
+      <PremiumLoveCursor />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,111,181,0.2),transparent_30%),radial-gradient(circle_at_80%_0%,rgba(201,182,255,0.18),transparent_28%),linear-gradient(180deg,#16051c_0%,#100410_100%)]" />
       <div className="absolute inset-0 noise" />
 
@@ -467,12 +725,12 @@ export default function Journey() {
               </div>
 
               <div className="mt-10 flex flex-wrap gap-4" data-reveal>
-                <motion.button onClick={startSurprise} onMouseDown={handleRipple} whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.98 }} className="btn-white-premium ripple relative inline-flex items-center gap-3 rounded-full px-6 py-3 text-sm font-medium shadow-2xl">
+                <motion.button data-love-cursor="button" data-love-reactive onClick={startSurprise} onMouseDown={handleRipple} whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.98 }} className="btn-white-premium ripple relative inline-flex items-center gap-3 rounded-full px-6 py-3 text-sm font-medium shadow-2xl">
                   <span className="btn-border-animate" aria-hidden="true" />
                   Open Your Surprise ✨
                 </motion.button>
 
-                <motion.button onClick={toggleSong} onMouseDown={handleRipple} whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.98 }} className="btn-white-premium ripple relative inline-flex items-center gap-3 rounded-full px-6 py-3 text-sm font-medium shadow-2xl">
+                <motion.button data-love-cursor="button" data-love-reactive onClick={toggleSong} onMouseDown={handleRipple} whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.98 }} className="btn-white-premium ripple relative inline-flex items-center gap-3 rounded-full px-6 py-3 text-sm font-medium shadow-2xl">
                   <span className="btn-border-animate" aria-hidden="true" />
                   {isPlayingSong ? "Pause Our Song ⏸" : "Play Our Song 🎵"}
                 </motion.button>
@@ -487,7 +745,7 @@ export default function Journey() {
                   { label: "Minutes", value: countdown.minutes },
                   { label: "Seconds", value: countdown.seconds },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
+                  <div key={item.label} data-love-reactive className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
                     <div className="text-3xl font-semibold text-white">{item.value}</div>
                     <div className="mt-1 text-[11px] uppercase tracking-[0.32em] text-white/55">{item.label}</div>
                   </div>
@@ -502,7 +760,7 @@ export default function Journey() {
             </div>
 
             <div className="flex-1 lg:max-w-2xl" data-reveal>
-              <div ref={heroCardRef} className="relative mx-auto w-full max-w-2xl rounded-[2.25rem] border border-white/10 bg-white/5 p-4 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl transform-gpu">
+              <div ref={heroCardRef} data-love-cursor="memory" data-love-reactive className="relative mx-auto w-full max-w-2xl rounded-[2.25rem] border border-white/10 bg-white/5 p-4 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl transform-gpu">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-[1.85rem]">
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -544,7 +802,7 @@ export default function Journey() {
 
               <div className="mt-4 grid grid-cols-5 gap-2" data-reveal>
                 {gallerySlides.map((slide, index) => (
-                  <button key={slide.caption} onClick={() => setCurrentSlide(index)} className={`group relative h-1.5 overflow-hidden rounded-full transition-all ${index === currentSlide ? "bg-white/85" : "bg-white/10"}`} aria-label={`Go to photo ${index + 1}`}>
+                  <button key={slide.caption} data-love-cursor="memory" data-love-reactive onClick={() => setCurrentSlide(index)} className={`group relative h-1.5 overflow-hidden rounded-full transition-all ${index === currentSlide ? "bg-white/85" : "bg-white/10"}`} aria-label={`Go to photo ${index + 1}`}>
                     <span className="absolute inset-0 bg-gradient-to-r from-[#ff6fb5] via-[#c9b6ff] to-white opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                   </button>
                 ))}
@@ -568,7 +826,7 @@ export default function Journey() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,111,181,0.14),transparent_28%),radial-gradient(circle_at_80%_30%,rgba(201,182,255,0.12),transparent_25%)]" />
               <div className="relative grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 {reasons.map((reason, index) => (
-                  <motion.div key={reason} whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5, scale: 1.02 }} className="float-parallax group rounded-[1.5rem] border border-white/10 bg-black/20 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.3)] backdrop-blur-md">
+                    <motion.div key={reason} data-love-reactive whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5, scale: 1.02 }} className="float-parallax group rounded-[1.5rem] border border-white/10 bg-black/20 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.3)] backdrop-blur-md">
                     <div className="text-[11px] uppercase tracking-[0.45em] text-white/40">{String(index + 1).padStart(2, "0")}</div>
                     <p className="mt-4 text-lg leading-7 text-white/88">{reason}</p>
                   </motion.div>
@@ -583,7 +841,7 @@ export default function Journey() {
             <SectionTitle kicker="Video memories" title="Moments I'll Never Forget" subtitle="Every memory here means something to me. Click any card and it opens like a little cinema window." />
             <div className="mt-12 grid gap-6 lg:grid-cols-3">
               {videoMemories.map((memory, index) => (
-                <motion.button key={memory.title} onClick={() => setActiveVideo(index)} whileHover={{ y: -10, rotate: index % 2 === 0 ? 1 : -1 }} className="group relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 text-left shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                <motion.button key={memory.title} data-love-cursor="video" data-love-reactive onClick={() => setActiveVideo(index)} whileHover={{ y: -10, rotate: index % 2 === 0 ? 1 : -1 }} className="group relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 text-left shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   <div className="relative aspect-[16/10] overflow-hidden">
                     <div className="absolute inset-0" style={{ background: memory.poster }} />
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.2),transparent_25%),linear-gradient(180deg,transparent,rgba(5,3,8,0.9))]" />
@@ -611,7 +869,7 @@ export default function Journey() {
                 {timeline.map((entry, index) => (
                   <div key={entry.title} className={`grid items-center gap-6 lg:grid-cols-2 ${entry.side === "left" ? "" : "lg:[&>div:first-child]:order-2"}`}>
                     <div className={`${entry.side === "left" ? "lg:pr-12" : "lg:pl-12 lg:order-2"}`}>
-                      <motion.div whileHover={{ scale: 1.01 }} className={`relative rounded-[1.75rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl ${index % 2 === 0 ? "lg:ml-auto" : ""}`}>
+                      <motion.div data-love-reactive whileHover={{ scale: 1.01 }} className={`relative rounded-[1.75rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl ${index % 2 === 0 ? "lg:ml-auto" : ""}`}>
                         <div className="absolute -left-3 top-8 h-6 w-6 rounded-full border border-white/40 bg-[#ff6fb5] shadow-[0_0_24px_rgba(255,111,181,0.45)] lg:left-auto lg:-right-3" />
                         <div className="text-[11px] uppercase tracking-[0.45em] text-white/40">{String(index + 1).padStart(2, "0")}</div>
                         <h3 className="mt-4 text-2xl font-semibold text-white">{entry.title}</h3>
@@ -631,7 +889,7 @@ export default function Journey() {
             <SectionTitle kicker="Love letters" title="Floating love letters" subtitle="Click any envelope. The letter unfolds like a secret that wanted to be found." />
             <div className="mt-12 grid gap-6 md:grid-cols-3">
               {letters.map((letter, index) => (
-                <motion.button key={letter.title} whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5 }} onClick={() => setOpenLetter(openLetter === index ? null : index)} className="group relative min-h-[340px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-left backdrop-blur-2xl">
+                <motion.button key={letter.title} data-love-cursor="letter" data-love-reactive whileHover={{ y: -8, rotate: index % 2 === 0 ? 1.5 : -1.5 }} onClick={() => setOpenLetter(openLetter === index ? null : index)} className="group relative min-h-[340px] overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-left backdrop-blur-2xl">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,0.14),transparent_25%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(0,0,0,0.18))]" />
                   <div className="absolute inset-x-8 top-8 h-28 rounded-[1.2rem] bg-gradient-to-r from-white/15 via-white/20 to-white/10 shadow-inner transition-transform duration-700 group-hover:-translate-y-1" />
                   <div className="relative z-10 mt-24 rounded-[1.35rem] border border-white/10 bg-[#f8ecff]/95 p-5 text-black shadow-[0_20px_70px_rgba(0,0,0,0.35)] transition-all duration-700">
@@ -671,7 +929,7 @@ export default function Journey() {
             <SectionTitle kicker="Future" title="Future adventures" subtitle="Dream cards that feel like plans already waiting to happen." />
             <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {adventures.map((item, index) => (
-                <motion.div key={item.title} whileHover={{ y: -10, scale: 1.02, rotateY: index % 2 === 0 ? 8 : -8 }} className="float-parallax transform-gpu rounded-[1.75rem] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+                <motion.div key={item.title} data-love-cursor="interactive" data-love-reactive whileHover={{ y: -10, scale: 1.02, rotateY: index % 2 === 0 ? 8 : -8 }} className="float-parallax transform-gpu rounded-[1.75rem] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
                   <div className="text-4xl">{item.icon}</div>
                   <h3 className="mt-5 text-2xl font-semibold text-white">{item.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-white/72">{item.text}</p>
