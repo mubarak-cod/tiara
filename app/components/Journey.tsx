@@ -27,6 +27,13 @@ type TimelineEvent = {
   side: "left" | "right";
 };
 
+type CountdownParts = {
+  days: string;
+  hours: string;
+  minutes: string;
+  seconds: string;
+};
+
 const gallerySlides: PhotoSlide[] = [
   {
     src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1400&q=80",
@@ -124,6 +131,34 @@ const surpriseLines = [
 
 const wishWords = ["Beautiful.", "Amazing.", "Kind.", "Strong.", "Funny.", "Smart.", "Lovely."];
 
+const COUNTDOWN_STORAGE_KEY = "tiara-birthday-countdown-target";
+
+function getNextJuneEleventh(now = new Date()) {
+  const target = new Date(now.getFullYear(), 5, 11, 0, 0, 0, 0);
+
+  if (now > target) {
+    return new Date(now.getFullYear() + 1, 5, 11, 0, 0, 0, 0);
+  }
+
+  return target;
+}
+
+function formatCountdown(targetTime: number): CountdownParts {
+  const distance = Math.max(0, targetTime - Date.now());
+  const totalSeconds = Math.floor(distance / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    days: String(days).padStart(2, "0"),
+    hours: String(hours).padStart(2, "0"),
+    minutes: String(minutes).padStart(2, "0"),
+    seconds: String(seconds).padStart(2, "0"),
+  };
+}
+
 function SectionTitle({ kicker, title, subtitle }: { kicker: string; title: string; subtitle: string }) {
   return (
     <div className="max-w-3xl">
@@ -195,9 +230,47 @@ export default function Journey() {
   const [openLetter, setOpenLetter] = useState<number | null>(null);
   const [surpriseStep, setSurpriseStep] = useState(0);
   const [confettiSeed, setConfettiSeed] = useState(0);
+  const [countdown, setCountdown] = useState<CountdownParts>({ days: "00", hours: "00", minutes: "00", seconds: "00" });
+  const [isBirthdayToday, setIsBirthdayToday] = useState(false);
   const activeSlide = gallerySlides[currentSlide];
 
   const memoryCaption = useMemo(() => gallerySlides[currentMemory].caption, [currentMemory]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedTarget = window.localStorage.getItem(COUNTDOWN_STORAGE_KEY);
+    const parsedTarget = storedTarget ? Number(storedTarget) : Number.NaN;
+    const nextJuneEleventh = getNextJuneEleventh().getTime();
+    const targetTime = Number.isFinite(parsedTarget) && parsedTarget > Date.now() ? parsedTarget : nextJuneEleventh;
+    const birthdayDate = new Date(targetTime);
+
+    window.localStorage.setItem(COUNTDOWN_STORAGE_KEY, String(targetTime));
+
+    const syncCountdown = () => {
+      const now = new Date();
+      const isSameBirthdayMonth = now.getMonth() === birthdayDate.getMonth();
+      const isSameBirthdayDay = now.getDate() === birthdayDate.getDate();
+      const isBirthday = isSameBirthdayMonth && isSameBirthdayDay;
+
+      setIsBirthdayToday(isBirthday);
+
+      if (isBirthday) {
+        setCountdown({ days: "00", hours: "00", minutes: "00", seconds: "00" });
+        return;
+      }
+
+      setCountdown(formatCountdown(targetTime));
+    };
+
+    syncCountdown();
+
+    const timer = window.setInterval(() => {
+      syncCountdown();
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const LenisCtor = Lenis as unknown as new (options: { duration: number; wheelMultiplier: number; smoothWheel?: boolean }) => { raf: (time: number) => void; destroy: () => void };
@@ -408,13 +481,24 @@ export default function Journey() {
               </div>
 
               <div className="mt-10 grid max-w-xl grid-cols-2 gap-3 rounded-[1.75rem] border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:grid-cols-4" data-reveal>
-                {["Days", "Hours", "Minutes", "Seconds"].map((label) => (
-                  <div key={label} className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
-                    <div className="text-3xl font-semibold text-white">00</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.32em] text-white/55">{label}</div>
+                {[
+                  { label: "Days", value: countdown.days },
+                  { label: "Hours", value: countdown.hours },
+                  { label: "Minutes", value: countdown.minutes },
+                  { label: "Seconds", value: countdown.seconds },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-4 text-center">
+                    <div className="text-3xl font-semibold text-white">{item.value}</div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.32em] text-white/55">{item.label}</div>
                   </div>
                 ))}
               </div>
+
+              {isBirthdayToday && (
+                <div className="mt-4 rounded-[1.5rem] border border-[#ff8fc8]/30 bg-white/10 px-5 py-4 text-sm text-white/85 backdrop-blur-md">
+                  Happy Birthday Tiara. Today is yours.
+                </div>
+              )}
             </div>
 
             <div className="flex-1 lg:max-w-2xl" data-reveal>
