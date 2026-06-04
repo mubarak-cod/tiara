@@ -18,7 +18,9 @@ type VideoMemory = {
   title: string;
   year: string;
   description: string;
-  poster: string;
+  poster: string; // legacy gradient or color fallback
+  src?: string; // local video source
+  posterImage?: string; // optional poster image path
 };
 
 type TimelineEvent = {
@@ -45,34 +47,28 @@ const cursorMessages = [
 
 const gallerySlides: PhotoSlide[] = [
   {
-    src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1400&q=80",
+    src: "/protrait.jpg",
     caption: "Her smile that started it all.",
     note: "The first frame of forever.",
     glow: "rgba(255, 111, 181, 0.45)",
   },
   {
-    src: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=1400&q=80",
+    src: "/two.jpg",
     caption: "The prettiest girl in every room.",
     note: "She changes the energy in seconds.",
     glow: "rgba(201, 182, 255, 0.44)",
   },
   {
-    src: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1400&q=80",
+    src: "/three.jpg",
     caption: "My favorite notification.",
     note: "A message from her always felt like light.",
     glow: "rgba(230, 184, 122, 0.38)",
   },
   {
-    src: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1400&q=80",
+    src: "/four.jpg",
     caption: "The reason today feels special.",
     note: "Everything becomes softer when she’s around.",
     glow: "rgba(255, 255, 255, 0.24)",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=1400&q=80",
-    caption: "A little chaos, a lot of magic.",
-    note: "The kind of love that makes time slow down.",
-    glow: "rgba(255, 143, 184, 0.4)",
   },
 ];
 
@@ -95,18 +91,24 @@ const videoMemories: VideoMemory[] = [
     year: "2025",
     description: "The kind of calls that stretch late into the night.",
     poster: "linear-gradient(135deg, rgba(255,111,181,0.30), rgba(73,34,115,0.88))",
+    src: "/vid1.mp4",
+    posterImage: "/three.jpg",
   },
   {
     title: "Quiet Laughs",
     year: "2025",
     description: "Little moments that felt like the whole world paused.",
     poster: "linear-gradient(135deg, rgba(201,182,255,0.34), rgba(20,12,34,0.88))",
+    src: "/vid2.mp4",
+    posterImage: "/two.jpg",
   },
   {
     title: "Soft Sundays",
     year: "2026",
     description: "The memories that always come back warm.",
     poster: "linear-gradient(135deg, rgba(230,184,122,0.35), rgba(44,18,59,0.9))",
+    src: "/vid3.mp4",
+    posterImage: "/four.jpg",
   },
 ];
 
@@ -843,7 +845,10 @@ export default function Journey() {
               {videoMemories.map((memory, index) => (
                 <motion.button key={memory.title} data-love-cursor="video" data-love-reactive onClick={() => setActiveVideo(index)} whileHover={{ y: -10, rotate: index % 2 === 0 ? 1 : -1 }} className="group relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-white/5 text-left shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   <div className="relative aspect-[16/10] overflow-hidden">
-                    <div className="absolute inset-0" style={{ background: memory.poster }} />
+                    <div
+                      className="absolute inset-0"
+                      style={ memory.posterImage ? { background: `url(${memory.posterImage}) center/cover no-repeat` } : { background: memory.poster }}
+                    />
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.2),transparent_25%),linear-gradient(180deg,transparent,rgba(5,3,8,0.9))]" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }} className="grid h-18 w-18 place-items-center rounded-full border border-white/30 bg-white/10 text-2xl text-white shadow-[0_0_30px_rgba(255,255,255,0.15)]">▶</motion.div>
@@ -998,12 +1003,28 @@ export default function Journey() {
             <motion.div initial={{ scale: 0.94, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 10 }} className="relative z-10 w-[min(92vw,960px)] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0f0916] shadow-[0_40px_140px_rgba(0,0,0,0.65)]">
               <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="relative aspect-[16/10] bg-black">
-                  <div className="relative h-full w-full" style={{ background: videoMemories[activeVideo].poster }}>
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_34%)]" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity }} className="grid h-20 w-20 place-items-center rounded-full border border-white/30 bg-white/10 text-3xl text-white">▶</motion.div>
-                      <p className="mt-6 text-sm uppercase tracking-[0.45em] text-white/65">Video preview coming alive</p>
-                    </div>
+                  <div className="relative h-full w-full">
+                    {videoMemories[activeVideo].src ? (
+                      <video
+                        src={videoMemories[activeVideo].src}
+                        className="h-full w-full object-cover"
+                        playsInline
+                        muted
+                        autoPlay
+                        controls
+                        preload="metadata"
+                        controlsList="nodownload noremoteplayback"
+                        disablePictureInPicture
+                      />
+                    ) : (
+                      <div className="relative h-full w-full" style={{ background: videoMemories[activeVideo].poster }}>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_34%)]" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.4, repeat: Infinity }} className="grid h-20 w-20 place-items-center rounded-full border border-white/30 bg-white/10 text-3xl text-white">▶</motion.div>
+                          <p className="mt-6 text-sm uppercase tracking-[0.45em] text-white/65">Video preview coming alive</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col justify-between p-7 sm:p-9">
